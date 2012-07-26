@@ -1,0 +1,6 @@
+glob:*.suo
+glob:*.user
+relre:/bin/
+relre:/obj/
+relre:/publish/
+syntax: glob
