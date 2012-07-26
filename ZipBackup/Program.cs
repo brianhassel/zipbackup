@@ -39,11 +39,11 @@ namespace BrianHassel.ZipBackup {
 
         private static void UpdateSettingsFile(BackupSettings backupSettings) {
             Console.Write(Resource1.Program_Main_EnterArchivePassword);
-            backupSettings.ArchivePassword = StaticHelpers.EncodeSecret(Console.ReadLine());
+            backupSettings.ArchivePassword = SecurityHelpers.EncodeSecret(Console.ReadLine());
             Console.Write(Resource1.Program_Main_EnterFTPPassword);
-            backupSettings.FTPSettings.FTPPassword = StaticHelpers.EncodeSecret(Console.ReadLine());
+            backupSettings.FTPSettings.FTPPassword = SecurityHelpers.EncodeSecret(Console.ReadLine());
             Console.Write(Resource1.Program_Main_EnterEmailPassword);
-            backupSettings.EmailSettings.EmailPassword = StaticHelpers.EncodeSecret(Console.ReadLine());
+            backupSettings.EmailSettings.EmailPassword = SecurityHelpers.EncodeSecret(Console.ReadLine());
         }
 
         private static string GetConfigFile() {

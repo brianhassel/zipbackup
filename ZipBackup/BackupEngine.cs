@@ -136,7 +136,7 @@ namespace BrianHassel.ZipBackup {
             arguments.AppendFormat(" -mhe={0}", backupSettings.EncryptHeaders ? "on" : "off");
 
             //Is the archive encrypted?
-            var archivePassword = StaticHelpers.DecodeSecret(backupSettings.ArchivePassword);
+            var archivePassword = SecurityHelpers.DecodeSecret(backupSettings.ArchivePassword);
             if (!string.IsNullOrEmpty(archivePassword))
                 arguments.AppendFormat(" -p{0}", archivePassword);
 
@@ -154,7 +154,7 @@ namespace BrianHassel.ZipBackup {
             var ftpSettings = backupSettings.FTPSettings;
             log.Info("Starting FTP: " + ftpSettings.FTPServerAddress);
 
-            var ftpPassword = StaticHelpers.DecodeSecret(ftpSettings.FTPPassword);
+            var ftpPassword = SecurityHelpers.DecodeSecret(ftpSettings.FTPPassword);
             var ftpClient = new FTPClient(ftpSettings.FTPServerAddress, ftpSettings.FTPUser, ftpPassword, port: ftpSettings.FTPPort, useSSL: ftpSettings.FTPUseSSL);
             
             ftpClient.RemoteFolder = ftpSettings.FTPFolder;
