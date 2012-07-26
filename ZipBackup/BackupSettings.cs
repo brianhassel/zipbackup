@@ -29,8 +29,8 @@ namespace BrianHassel.ZipBackup {
                                                                }
                                              };
 
-            EmailSettings = new EmailSettings {EmailServerAddress = "smtp.gmail.com", EmailPort = 587, EmailTo = "backup@4diq.com", EmailUser = "donotreply@4diq.com"};
-            FTPSettings = new FTPSettings { FTPServerAddress = "4diqdev01", FTPPort = 21, FTPUser = "ftpuser", FTPVerifySizes = true, FTPFolder = "BAK"};
+            EmailSettings = new EmailSettings {EmailServerAddress = "smtp.gmail.com", EmailPort = 587, EmailTo = "backup@gmail.com", EmailUser = "donotreply@gmail.com"};
+            FTPSettings = new FTPSettings { FTPServerAddress = "ftp.com", FTPPort = 21, FTPUser = "ftpuser", FTPVerifySizes = true, FTPFolder = "BAK"};
         }
 
         [DataMember]

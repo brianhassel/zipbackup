@@ -6,15 +6,6 @@ namespace BrianHassel.ZipBackup {
 
     internal class Program {
 
-        //private static void Main() {
-        //    var back = new BackupSettings();
-            
-        //    back.ArchivePassword = StaticHelpers.EncodeSecret("test");
-        //    back.FTPSettings.FTPPassword = StaticHelpers.EncodeSecret("WmJPBUDeDe");
-        //    var p = new BackupEngine(back);
-        //    p.PerformBackups();
-        //}
-
         private static int Main(string[] args) {
             var configFile = GetConfigFile();
 
