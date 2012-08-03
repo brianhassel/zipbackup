@@ -175,9 +175,7 @@ namespace BrianHassel.ZipBackup {
                 if(!existsLocal) {
                     log.Info("Deleting remote: " + remoteBackupFileName);
                     if (!ftpClient.DeleteFile(remoteBackupFileName)) {
-                        string error = "Delete failed. " + ftpClient.LastStatusDescription;
-                        log.Error(error);
-                        throw new ApplicationException(error);
+                        throw new ApplicationException("Delete failed. " + ftpClient.LastStatusDescription);
                     }
                 }
             }
@@ -186,23 +184,31 @@ namespace BrianHassel.ZipBackup {
                 string remoteFileName = remoteBackupFileNames.Find(rbfn => string.Equals(rbfn, localBackupFile.Name, StringComparison.OrdinalIgnoreCase));
                 bool shouldUpload = false;
 
-                if (string.IsNullOrEmpty(remoteFileName))
+                if (string.IsNullOrEmpty(remoteFileName)) {
                     shouldUpload = true;
+                    log.Info(string.Format("File: {0} ({1}) does not exist on FTP site. Starting upload.", localBackupFile.Name,
+                                           StaticHelpers.FormatFileSize(localBackupFile.Length)));
+                }
                 else {
                     //Check the sizes
-                    if (ftpSettings.FTPVerifySizes) 
-                        shouldUpload = localBackupFile.Length != ftpClient.GetFileSize(remoteFileName);
+                    if (ftpSettings.FTPVerifySizes) {
+                        long? ftpFileSize = ftpClient.GetFileSize(remoteFileName);
+                        shouldUpload = localBackupFile.Length != ftpFileSize;
+                        if (shouldUpload)
+                            log.Info(string.Format("File: {0} ({1}) size does not match file size on FTP site ({2}).", localBackupFile.Name,
+                                                   StaticHelpers.FormatFileSize(localBackupFile.Length), StaticHelpers.FormatFileSize(ftpFileSize)));
+                    }
                 }
 
                 if (shouldUpload) {
                     Stopwatch sw = Stopwatch.StartNew();
                     if (!ftpClient.UploadFile(localBackupFile)) {
-                        string error = "Upload failed. " + ftpClient.LastStatusDescription;
-                        log.Error(error);
-                        throw new ApplicationException(error);
+                        throw new ApplicationException("Upload failed. " + ftpClient.LastStatusDescription);
                     }
                     sw.Stop();
-                    log.Info(string.Format("Upload of:{0} ({1}) completed in:{2} ", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length), sw.Elapsed));
+                    double bytesSec = localBackupFile.Length/sw.Elapsed.TotalSeconds;
+                    log.Info(string.Format("Upload of:{0} ({1}) completed in:{2} ({3} / second)", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length),
+                                           sw.Elapsed, StaticHelpers.FormatFileSize(bytesSec)));
                 }
             }
         }

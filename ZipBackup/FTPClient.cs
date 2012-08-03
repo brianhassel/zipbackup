@@ -116,30 +116,30 @@ namespace BrianHassel.ZipBackup {
 
 
         private FtpWebRequest BuildFTPRequest(string remoteFileName, string ftpRequest) {
-            UriBuilder uri = new UriBuilder("ftp", hostAddress);
-            if (port.HasValue && port.Value != 21)
-                uri.Port = port.Value;
-            if (!string.IsNullOrEmpty(RemoteFolder))
-                uri.Path = RemoteFolder + "/" + remoteFileName;
-            else {
-                uri.Path = remoteFileName;
-            }
+            //UriBuilder uri = new UriBuilder("ftp", hostAddress);
+            //if (port.HasValue && port.Value != 21)
+            //    uri.Port = port.Value;
+            //if (!string.IsNullOrEmpty(RemoteFolder))
+            //    uri.Path = RemoteFolder + "/" + remoteFileName;
+            //else {
+            //    uri.Path = remoteFileName;
+            //}
             //if (!string.IsNullOrEmpty(remoteFileName))
             //    ftpFullPath += remoteFileName;
             
 
-            ////var ftpFullPath = string.Format("ftp://{0}", hostAddress);
-            //if (port.HasValue && port.Value != 21)
-            //    ftpFullPath += ":" + port.Value;
-            //ftpFullPath += "/";
-            //if (!string.IsNullOrEmpty(RemoteFolder))
-            //    ftpFullPath += RemoteFolder + "/";
-            //if (!string.IsNullOrEmpty(remoteFileName))
-            //    ftpFullPath += remoteFileName;
+            var ftpFullPath = string.Format("ftp://{0}", hostAddress);
+            if (port.HasValue && port.Value != 21)
+                ftpFullPath += ":" + port.Value;
+            ftpFullPath += "/";
+            if (!string.IsNullOrEmpty(RemoteFolder))
+                ftpFullPath += RemoteFolder + "/";
+            if (!string.IsNullOrEmpty(remoteFileName))
+                ftpFullPath += remoteFileName;
 
             //var ftpFullPath = port.HasValue ? string.Format("ftp://{0}:{1}/{2}", hostAddress, port.Value, remoteFileName) : string.Format("ftp://{0}/{1}", hostAddress, remoteFileName);
             //Console.WriteLine(uri.Uri);
-            var ftp = (FtpWebRequest)WebRequest.Create(uri.Uri);
+            var ftp = (FtpWebRequest)WebRequest.Create(ftpFullPath);
             if (networkCredentials != null)
                 ftp.Credentials = networkCredentials;
             ftp.KeepAlive = true;

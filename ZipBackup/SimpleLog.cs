@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace BrianHassel.ZipBackup {
@@ -6,27 +8,27 @@ namespace BrianHassel.ZipBackup {
 
         public SimpleLog(bool logToConsole) {
             this.logToConsole = logToConsole;
-            logLines = new StringBuilder(1000);
+            logLines = new List<string>(150);
         }
 
         public void Info(string text) {
-            logLines.AppendLine(text);
+            logLines.Add(text);
             if(logToConsole)
                 Console.WriteLine(text);
         }
 
         public void Error(string text) {
-            logLines.AppendLine(text);
+            logLines.Add(text);
             if (logToConsole)
                 Console.WriteLine(text);
         }
 
         public string GetEmailText() {
-            return logLines.ToString();
+            return string.Join("\n", logLines);
         }
 
 
         private readonly bool logToConsole;
-        private readonly StringBuilder logLines;
+        private readonly List<string> logLines;
     }
 }

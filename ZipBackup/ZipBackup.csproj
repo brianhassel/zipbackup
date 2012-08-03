@@ -68,7 +68,9 @@
     <None Include="7-zip.chm" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="7za.exe" />
+    <Content Include="7za.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="PasswordSettingsDialog.resx">
