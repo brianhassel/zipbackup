@@ -164,8 +164,6 @@ namespace BrianHassel.ZipBackup {
             var ftpPassword = SecurityHelpers.DecodeSecret(ftpSettings.FTPPassword);
             var ftpClient = new FTPClient(ftpSettings.FTPServerAddress, ftpSettings.FTPUser, ftpPassword, port: ftpSettings.FTPPort, useSSL: ftpSettings.FTPUseSSL);
             
-            ftpClient.RemoteFolder = ftpSettings.FTPFolder;
-
             var localBackupDirectory = new DirectoryInfo(backupSettings.LocalBackupFolder);
             var localBackupFiles = new List<FileInfo>();
             localBackupFiles.AddRange(localBackupDirectory.GetFiles("I-*.7z"));

@@ -30,7 +30,7 @@ namespace BrianHassel.ZipBackup {
                                              };
 
             EmailSettings = new EmailSettings {EmailServerAddress = "smtp.gmail.com", EmailPort = 587, EmailTo = "backup@gmail.com", EmailUser = "donotreply@gmail.com"};
-            FTPSettings = new FTPSettings { FTPServerAddress = "ftp.com", FTPPort = 21, FTPUser = "ftpuser", FTPVerifySizes = true, FTPFolder = "BAK"};
+            FTPSettings = new FTPSettings { FTPServerAddress = "ftp.com", FTPPort = 21, FTPUser = "ftpuser", FTPVerifySizes = true};
         }
 
         [DataMember]
@@ -77,9 +77,6 @@ namespace BrianHassel.ZipBackup {
     public class FTPSettings {
         [DataMember]
         public string FTPServerAddress { get; set; }
-
-        [DataMember]
-        public string FTPFolder { get; set; }
 
         [DataMember]
         public int FTPPort { get; set; }
