@@ -4,38 +4,44 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using NLog;
 
 namespace BrianHassel.ZipBackup {
     internal sealed class BackupEngine{
 
         internal BackupEngine(BackupSettings backupSettings) {
-            log = new SimpleLog(true);
             this.backupSettings = backupSettings;
         }
        
         public bool PerformBackups() {
-            bool res;
+            bool result;
             try{
                 foreach (var backupJob in backupSettings.BackupJobs) {
-                    log.Info("\n####" + backupJob.BackupName + "####");
+                    log.Info("");
+                    log.Info("####{0}####", backupJob.BackupName);
 
                     DetermineBackupMode(backupJob);
                     CleanupLocalBackups(backupJob);
                     BuildArchive(backupJob);
                 }
-                SyncFTPBackups();
-                res = true;
+                if(backupSettings.SyncWithFTP)
+                    SyncFTPBackups();
+
+                result = true;
             }catch(Exception e) {
-                log.Error("Unhandled " + e);
-                res= false;
+                log.FatalException("Unhandled", e);
+                result= false;
             }
 
             try {
-                StaticHelpers.SendEmail(backupSettings.EmailSettings, res ? "Backup successful" : "Backup Failed", log.GetEmailText());
+                if (backupSettings.SendEmail) {
+                    string emailSubject = result ? "Backup successful" : "Backup Failed";
+                    //StaticHelpers.SendEmail(backupSettings.EmailSettings, emailSubject, log.GetEmailText());
+                }
             } catch (Exception e) {
-                log.Error("Unhandled " + e);
+                log.FatalException("Unhandled", e);
             }
-            return res;
+            return result;
         }
 
         private void DetermineBackupMode(BackupJob backupJob) {
@@ -48,12 +54,12 @@ namespace BrianHassel.ZipBackup {
                 var fullBackupAgeDays = (DateTime.UtcNow - backupJob.FullBackupFile.CreationTimeUtc).TotalDays;
                 
                 if(fullBackupAgeDays > backupJob.MaxFullBackupAgeDays) {
-                    log.Info(string.Format("Full backup is {0} days old. Performing FULL backup.", fullBackupAgeDays.ToString("0.00")));
+                    log.Info("Full backup is {0} days old. Performing FULL backup.", fullBackupAgeDays.ToString("0.00"));
                     backupJob.FullBackupFile =
                         new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("F-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
                     backupJob.IncrementalFile = null;
                 }else {
-                    log.Info(string.Format("Full backup is {0} days old. Performing INCREMENTAL backup.", fullBackupAgeDays.ToString("0.00")));
+                    log.Info("Full backup is {0} days old. Performing INCREMENTAL backup.", fullBackupAgeDays.ToString("0.00"));
                     backupJob.IncrementalFile = new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("I-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
                 }
             } else {
@@ -78,10 +84,10 @@ namespace BrianHassel.ZipBackup {
             var existingFiles = new List<string>(Directory.GetFiles(backupSettings.LocalBackupFolder, string.Format("I-{0}-*.7z", backupJob.BackupName)));
 
             var filesToDelete = existingFiles.OrderByDescending(f => f.ToLower()).Skip(numKeep);
-            log.Info("Found: " + existingFiles.Count + " existing local incremental files. Will keep:" + numKeep);
+            log.Info("Found: {0} existing local incremental files. Will keep: {1}", existingFiles.Count, numKeep);
 
             foreach (string fileToDelete in filesToDelete) {
-                log.Info("Deleting local: " + fileToDelete);
+                log.Info("Deleting local: {0}", fileToDelete);
                 File.Delete(fileToDelete);
             }
         }
@@ -97,11 +103,11 @@ namespace BrianHassel.ZipBackup {
             File.Delete(listFile);
             if (backupJob.IsFullBackup) {
                 backupJob.FullBackupFile.Refresh();
-                log.Info("Archive file created. Size: " + StaticHelpers.FormatFileSize(backupJob.FullBackupFile.Length));
+                log.Info("Full archive file created. Size: {0}", StaticHelpers.FormatFileSize(backupJob.FullBackupFile.Length));
             }
             else {
                 backupJob.IncrementalFile.Refresh();
-                log.Info("Archive file created. Size: " + StaticHelpers.FormatFileSize(backupJob.IncrementalFile.Length));
+                log.Info("Incremental archive file created. Size: {0}", StaticHelpers.FormatFileSize(backupJob.IncrementalFile.Length));
             }
         }
 
@@ -117,7 +123,8 @@ namespace BrianHassel.ZipBackup {
             string output = x.StandardOutput.ReadToEnd();
 
             x.WaitForExit(1000 * 60 * 30);
-            log.Info(output);
+            log.Debug(output);
+
             if (x.ExitCode != 0)
                 throw new ApplicationException("Archive failed. Exit Code: " + x.ExitCode);
         }
@@ -152,15 +159,15 @@ namespace BrianHassel.ZipBackup {
 
         private void SyncFTPBackups() {
             var ftpSettings = backupSettings.FTPSettings;
-            log.Info("Starting FTP: " + ftpSettings.FTPServerAddress);
+            log.Info("Starting FTP: {0}", ftpSettings.FTPServerAddress);
 
             var ftpPassword = SecurityHelpers.DecodeSecret(ftpSettings.FTPPassword);
             var ftpClient = new FTPClient(ftpSettings.FTPServerAddress, ftpSettings.FTPUser, ftpPassword, port: ftpSettings.FTPPort, useSSL: ftpSettings.FTPUseSSL);
             
             ftpClient.RemoteFolder = ftpSettings.FTPFolder;
 
-            DirectoryInfo localBackupDirectory = new DirectoryInfo(backupSettings.LocalBackupFolder);
-            List<FileInfo> localBackupFiles = new List<FileInfo>();
+            var localBackupDirectory = new DirectoryInfo(backupSettings.LocalBackupFolder);
+            var localBackupFiles = new List<FileInfo>();
             localBackupFiles.AddRange(localBackupDirectory.GetFiles("I-*.7z"));
             localBackupFiles.AddRange(localBackupDirectory.GetFiles("F-*.7z"));
 
@@ -173,7 +180,7 @@ namespace BrianHassel.ZipBackup {
             foreach(string remoteBackupFileName in remoteBackupFileNames) {
                 bool existsLocal = localBackupFiles.Exists(lbf => string.Equals(lbf.Name, remoteBackupFileName, StringComparison.OrdinalIgnoreCase));
                 if(!existsLocal) {
-                    log.Info("Deleting remote: " + remoteBackupFileName);
+                    log.Info("Deleting remote: {0}", remoteBackupFileName);
                     if (!ftpClient.DeleteFile(remoteBackupFileName)) {
                         throw new ApplicationException("Delete failed. " + ftpClient.LastStatusDescription);
                     }
@@ -186,8 +193,7 @@ namespace BrianHassel.ZipBackup {
 
                 if (string.IsNullOrEmpty(remoteFileName)) {
                     shouldUpload = true;
-                    log.Info(string.Format("File: {0} ({1}) does not exist on FTP site. Starting upload.", localBackupFile.Name,
-                                           StaticHelpers.FormatFileSize(localBackupFile.Length)));
+                    log.Info("File: {0} ({1}) does not exist on FTP site. Starting upload.", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length));
                 }
                 else {
                     //Check the sizes
@@ -195,8 +201,8 @@ namespace BrianHassel.ZipBackup {
                         long? ftpFileSize = ftpClient.GetFileSize(remoteFileName);
                         shouldUpload = localBackupFile.Length != ftpFileSize;
                         if (shouldUpload)
-                            log.Info(string.Format("File: {0} ({1}) size does not match file size on FTP site ({2}).", localBackupFile.Name,
-                                                   StaticHelpers.FormatFileSize(localBackupFile.Length), StaticHelpers.FormatFileSize(ftpFileSize)));
+                            log.Warn("File: {0} ({1}) size does not match file size on FTP site ({2}).", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length),
+                                     StaticHelpers.FormatFileSize(ftpFileSize));
                     }
                 }
 
@@ -207,13 +213,13 @@ namespace BrianHassel.ZipBackup {
                     }
                     sw.Stop();
                     double bytesSec = localBackupFile.Length/sw.Elapsed.TotalSeconds;
-                    log.Info(string.Format("Upload of:{0} ({1}) completed in:{2} ({3} / second)", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length),
-                                           sw.Elapsed, StaticHelpers.FormatFileSize(bytesSec)));
+                    log.Info("Upload of:{0} ({1}) completed in:{2} ({3} / second)", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length), sw.Elapsed,
+                             StaticHelpers.FormatFileSize(bytesSec));
                 }
             }
         }
 
         private readonly BackupSettings backupSettings;
-        private readonly SimpleLog log;
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
     }
 }

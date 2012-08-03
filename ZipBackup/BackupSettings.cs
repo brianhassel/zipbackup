@@ -52,7 +52,13 @@ namespace BrianHassel.ZipBackup {
         public List<BackupJob> BackupJobs { get; set; }
 
         [DataMember]
+        public bool SyncWithFTP { get; set; }
+
+        [DataMember]
         public FTPSettings FTPSettings { get; set; }
+
+        [DataMember]
+        public bool SendEmail { get; set; }
 
         [DataMember]
         public EmailSettings EmailSettings { get; set; }

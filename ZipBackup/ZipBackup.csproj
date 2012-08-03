@@ -35,6 +35,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="NLog, Version=2.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
@@ -61,11 +62,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SecurityHelpers.cs" />
     <Compile Include="SerializationHelpers.cs" />
-    <Compile Include="SimpleLog.cs" />
     <Compile Include="StaticHelpers.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="7-zip.chm" />
+    <None Include="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Content Include="7za.exe">
