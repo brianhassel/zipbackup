@@ -36,8 +36,8 @@ namespace BrianHassel.ZipBackup {
 
 
             if (backupSettings.SendEmail) {
-                string emailSubject = result ? "Backup successful" : "Backup Failed";
-                if (!StaticHelpers.SendEmail(backupSettings.EmailSettings, emailSubject, emailSubject))
+                string text = string.Format("Backup of {0} {1}.", Environment.MachineName, result ? "was successful." : "FAILED");
+                if (!StaticHelpers.SendEmail(backupSettings.EmailSettings, text, text))
                     result = false;
             }
 
