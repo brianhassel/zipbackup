@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
+using NLog;
 
 
 namespace BrianHassel.ZipBackup {
@@ -65,12 +67,23 @@ namespace BrianHassel.ZipBackup {
 
        
         internal static BackupSettings LoadBackupSettings(string fileName) {
-            return SerializationHelpers.DeserializeObjectFromFile<BackupSettings>(new FileInfo(fileName), false);
+            try {
+                return SerializationHelpers.DeserializeObjectFromFile<BackupSettings>(new FileInfo(fileName), false);
+            }catch(Exception e) {
+                log.ErrorException("Could not load settings from: " + fileName, e);
+                return null;
+            }
         }
 
         internal void SaveBackupSettings(string fileName) {
-            SerializationHelpers.SerializeObjectToFile(this, new FileInfo(fileName), false, true);
+            try {
+                SerializationHelpers.SerializeObjectToFile(this, new FileInfo(fileName), false, true);
+            } catch (Exception e) {
+                log.ErrorException("Could not save settings to: " + fileName, e);
+            }
         }
+
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
     }
 
     [DataContract]

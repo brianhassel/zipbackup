@@ -12,71 +12,98 @@ namespace BrianHassel.ZipBackup {
         internal BackupEngine(BackupSettings backupSettings) {
             this.backupSettings = backupSettings;
         }
-       
-        public bool PerformBackups() {
+
+        public bool PerformBackups(bool forceFull) {
             bool result;
-            try{
+            try {
                 foreach (var backupJob in backupSettings.BackupJobs) {
                     log.Info("");
                     log.Info("####{0}####", backupJob.BackupName);
 
-                    DetermineBackupMode(backupJob);
+                    DetermineBackupMode(backupJob, forceFull);
                     CleanupLocalBackups(backupJob);
                     BuildArchive(backupJob);
                 }
-                if(backupSettings.SyncWithFTP)
+                if (backupSettings.SyncWithFTP)
                     SyncFTPBackups();
 
                 result = true;
-            }catch(Exception e) {
+            }
+            catch (Exception e) {
                 log.FatalException("Unhandled", e);
-                result= false;
+                result = false;
             }
 
-            try {
-                if (backupSettings.SendEmail) {
-                    string emailSubject = result ? "Backup successful" : "Backup Failed";
-                    //StaticHelpers.SendEmail(backupSettings.EmailSettings, emailSubject, log.GetEmailText());
-                }
-            } catch (Exception e) {
-                log.FatalException("Unhandled", e);
+
+            if (backupSettings.SendEmail) {
+                string emailSubject = result ? "Backup successful" : "Backup Failed";
+                if (!StaticHelpers.SendEmail(backupSettings.EmailSettings, emailSubject, emailSubject))
+                    result = false;
             }
+
             return result;
         }
 
-        private void DetermineBackupMode(BackupJob backupJob) {
+        private void DetermineBackupMode(BackupJob backupJob, bool forceFull) {
+            if (forceFull) {
+                log.Info("Performing FULL backup (requested).");
+                backupJob.FullBackupFile =
+                    new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("F-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
+                backupJob.IncrementalFile = null;
+                return;
+            }
+
             //Set the 7z container files for the Full/Inc. Figure out which backup to perform.
             var matchingFiles = Directory.GetFiles(backupSettings.LocalBackupFolder, string.Format("F-{0}*.7z", backupJob.BackupName));
-
-            if (matchingFiles.Length == 1) {
-                backupJob.FullBackupFile = new FileInfo(matchingFiles[0]);
-
-                var fullBackupAgeDays = (DateTime.UtcNow - backupJob.FullBackupFile.CreationTimeUtc).TotalDays;
-                
-                if(fullBackupAgeDays > backupJob.MaxFullBackupAgeDays) {
-                    log.Info("Full backup is {0} days old. Performing FULL backup.", fullBackupAgeDays.ToString("0.00"));
-                    backupJob.FullBackupFile =
-                        new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("F-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
-                    backupJob.IncrementalFile = null;
-                }else {
-                    log.Info("Full backup is {0} days old. Performing INCREMENTAL backup.", fullBackupAgeDays.ToString("0.00"));
-                    backupJob.IncrementalFile = new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("I-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
-                }
-            } else {
+            //No full backups
+            if (matchingFiles.Length != 1) {
                 log.Info("No full backup file found. Performing FULL backup.");
                 backupJob.FullBackupFile =
                     new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("F-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
                 backupJob.IncrementalFile = null;
+                return;
+            }
+
+            //There is one full backup, figure if it needs to be redone
+            backupJob.FullBackupFile = new FileInfo(matchingFiles[0]);
+
+            var fullBackupAgeDays = (DateTime.UtcNow - backupJob.FullBackupFile.CreationTimeUtc).TotalDays;
+
+            if (fullBackupAgeDays > backupJob.MaxFullBackupAgeDays) {
+                log.Info("Full backup is {0} days old. Performing FULL backup.", fullBackupAgeDays.ToString("0.00"));
+                backupJob.FullBackupFile =
+                    new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("F-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
+                backupJob.IncrementalFile = null;
+            }
+            else {
+                //Test the full backup file to make sure it isn't corrupt
+                bool isFullBackupOK = TestFullBackupFile(backupJob);
+
+                if (isFullBackupOK) {
+                    log.Info("Full backup is {0} days old and passed validity check. Performing INCREMENTAL backup.", fullBackupAgeDays.ToString("0.00"));
+                    backupJob.IncrementalFile =
+                        new FileInfo(Path.Combine(backupSettings.LocalBackupFolder,
+                                                  string.Format("I-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
+                }else {
+                    log.Info("Full backup failed validity check. Performing FULL backup.");
+                    backupJob.FullBackupFile =
+                        new FileInfo(Path.Combine(backupSettings.LocalBackupFolder, string.Format("F-{0}-{1}.7z", backupJob.BackupName, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))));
+                    backupJob.IncrementalFile = null;
+                }
             }
         }
 
+       
+
         private void CleanupLocalBackups(BackupJob backupJob) {
             if (backupJob.IsFullBackup) {
-                foreach(var fullBak in Directory.GetFiles(backupSettings.LocalBackupFolder, string.Format("F-{0}*.7z", backupJob.BackupName)))
+                foreach (var fullBak in Directory.GetFiles(backupSettings.LocalBackupFolder, string.Format("F-{0}*.7z", backupJob.BackupName)))
                     File.Delete(fullBak);
                 RemoveOldLocalIncrementalBackups(backupJob, 0);
-            } else {
-                RemoveOldLocalIncrementalBackups(backupJob, backupJob.NumberIncremental);
+            }
+            else {
+                //Only keep 1 less than specified in config - the backup that is about to run is that extra
+                RemoveOldLocalIncrementalBackups(backupJob, Math.Max(backupJob.NumberIncremental - 1, 0));
             }
         }
 
@@ -157,6 +184,27 @@ namespace BrianHassel.ZipBackup {
             return arguments.ToString();
         }
 
+        private bool TestFullBackupFile(BackupJob backupJob) {
+            string args = "t \"" + backupJob.FullBackupFile.FullName + "\"";
+            var archivePassword = SecurityHelpers.DecodeSecret(backupSettings.ArchivePassword);
+            if (!string.IsNullOrEmpty(archivePassword))
+                args += " -p" + archivePassword;
+
+            var p = new ProcessStartInfo {
+                                             FileName = backupSettings.SevenZipExecutablePath,
+                                             UseShellExecute = false,
+                                             Arguments = args,
+                                             RedirectStandardOutput = true
+                                         };
+            var x = Process.Start(p);
+            string output = x.StandardOutput.ReadToEnd();
+
+            x.WaitForExit(1000*60*30);
+            log.Debug(output);
+
+            return x.ExitCode == 0;
+        }
+
         private void SyncFTPBackups() {
             var ftpSettings = backupSettings.FTPSettings;
             log.Info("Starting FTP: {0}", ftpSettings.FTPServerAddress);
@@ -168,7 +216,6 @@ namespace BrianHassel.ZipBackup {
             var localBackupFiles = new List<FileInfo>();
             localBackupFiles.AddRange(localBackupDirectory.GetFiles("I-*.7z"));
             localBackupFiles.AddRange(localBackupDirectory.GetFiles("F-*.7z"));
-
 
             var remoteBackupFileNames = ftpClient.GetList().Where(rbf =>
                                                               rbf.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) &&
@@ -198,9 +245,13 @@ namespace BrianHassel.ZipBackup {
                     if (ftpSettings.FTPVerifySizes) {
                         long? ftpFileSize = ftpClient.GetFileSize(remoteFileName);
                         shouldUpload = localBackupFile.Length != ftpFileSize;
-                        if (shouldUpload)
-                            log.Warn("File: {0} ({1}) size does not match file size on FTP site ({2}).", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length),
+                        if (shouldUpload) {
+                            log.Warn("File: {0} ({1}) size DOES NOT match file size on FTP site ({2}).", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length),
                                      StaticHelpers.FormatFileSize(ftpFileSize));
+                        }else {
+                            log.Info("File: {0} ({1}) size matches file size on FTP site ({2}).", localBackupFile.Name, StaticHelpers.FormatFileSize(localBackupFile.Length),
+                                     StaticHelpers.FormatFileSize(ftpFileSize));
+                        }
                     }
                 }
 

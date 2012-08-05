@@ -7,20 +7,40 @@ using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
+using NLog;
 
 
 namespace BrianHassel.ZipBackup {
     internal static class StaticHelpers {
         
-        public static void SendEmail(EmailSettings emailSettings, string subject, string body) {
+        public static bool SendEmail(EmailSettings emailSettings, string subject, string body) {
+            try {
+                var emailPassword = SecurityHelpers.DecodeSecret(emailSettings.EmailPassword);
 
-            var emailPassword = SecurityHelpers.DecodeSecret(emailSettings.EmailPassword);
+                var client = new SmtpClient(emailSettings.EmailServerAddress, emailSettings.EmailPort) {
+                                                                                                           Credentials =
+                                                                                                               new NetworkCredential(emailSettings.EmailUser, emailPassword),
+                                                                                                           EnableSsl = emailSettings.EmailUseSSL
+                                                                                                       };
 
-            var client = new SmtpClient(emailSettings.EmailServerAddress, emailSettings.EmailPort) {
-                                                                                                       Credentials = new NetworkCredential(emailSettings.EmailUser, emailPassword),
-                                                                                                       EnableSsl = emailSettings.EmailUseSSL
-                                                                                                   };
-            client.Send(emailSettings.EmailUser, emailSettings.EmailTo, subject, body);
+                //Create the email
+                var mailMessage = new MailMessage(emailSettings.EmailUser, emailSettings.EmailTo, subject, body);
+
+                //Try to attach the log if specified
+                var logFile = Path.Combine(Environment.CurrentDirectory, "logs", "logfile.txt");
+
+                if (File.Exists(logFile))
+                    mailMessage.Attachments.Add(new Attachment(logFile));
+                else {
+                    log.Warn("Unable to find log file to attach: " + logFile);
+                }
+
+                client.Send(mailMessage);
+                return true;
+            }catch(Exception e) {
+                log.ErrorException("Could not send email. " + subject, e);
+                return false;
+            }
         }
 
         public static string FormatFileSize(object fileSize, int decimalPlaces = 2) {
@@ -60,5 +80,7 @@ namespace BrianHassel.ZipBackup {
         private const Decimal MegaByte = KiloByte * KiloByte;
         private const Decimal GigaByte = MegaByte * KiloByte;
         private const Decimal TeraByte = GigaByte * KiloByte;
+
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
     }
 }
