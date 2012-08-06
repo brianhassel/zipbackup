@@ -52,6 +52,7 @@
     <Compile Include="BackupEngine.cs" />
     <Compile Include="BackupSettings.cs" />
     <Compile Include="FTPClient.cs" />
+    <Compile Include="NativeMethods.cs" />
     <Compile Include="PasswordSettingsDialog.cs">
       <SubType>Form</SubType>
     </Compile>

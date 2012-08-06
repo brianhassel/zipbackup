@@ -15,6 +15,10 @@ namespace BrianHassel.ZipBackup {
 
         public bool PerformBackups(bool forceFull) {
             bool result;
+            
+            //Make sure the computer does not enter a sleep state while we are busy.
+            NativeMethods.PreventSleep();
+
             try {
                 foreach (var backupJob in backupSettings.BackupJobs) {
                     log.Info("");
@@ -40,6 +44,9 @@ namespace BrianHassel.ZipBackup {
                 if (!StaticHelpers.SendEmail(backupSettings.EmailSettings, text, text))
                     result = false;
             }
+
+            //Return the system to the proper sleep state.
+            NativeMethods.AllowSleep();
 
             return result;
         }
@@ -270,5 +277,6 @@ namespace BrianHassel.ZipBackup {
 
         private readonly BackupSettings backupSettings;
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
+        private uint previousExecutionState;
     }
 }
