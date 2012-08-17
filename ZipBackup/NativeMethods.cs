@@ -8,11 +8,15 @@ namespace BrianHassel.ZipBackup {
     internal static class NativeMethods {
 
         public static void PreventSleep() {
-            SetThreadExecutionState(ExecutionState.EsContinuous | ExecutionState.EsSystemRequired);
+            try {
+                SetThreadExecutionState(ExecutionState.EsContinuous | ExecutionState.EsSystemRequired);
+            } catch {}
         }
 
         public static void AllowSleep() {
-            SetThreadExecutionState(ExecutionState.EsContinuous);
+            try {
+                SetThreadExecutionState(ExecutionState.EsContinuous);
+            } catch {}
         }
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]

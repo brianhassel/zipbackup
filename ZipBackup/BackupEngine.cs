@@ -224,7 +224,11 @@ namespace BrianHassel.ZipBackup {
             localBackupFiles.AddRange(localBackupDirectory.GetFiles("I-*.7z"));
             localBackupFiles.AddRange(localBackupDirectory.GetFiles("F-*.7z"));
 
-            var remoteBackupFileNames = ftpClient.GetList().Where(rbf =>
+            var list = ftpClient.GetList();
+            if(list == null)
+                throw new ApplicationException("Could not retrieve list from FTP site.");
+
+            var remoteBackupFileNames = list.Where(rbf =>
                                                               rbf.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) &&
                                                               (rbf.StartsWith("I-", StringComparison.OrdinalIgnoreCase) || rbf.StartsWith("F-", StringComparison.OrdinalIgnoreCase))
                 ).ToList();
@@ -277,6 +281,5 @@ namespace BrianHassel.ZipBackup {
 
         private readonly BackupSettings backupSettings;
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
-        private uint previousExecutionState;
     }
 }

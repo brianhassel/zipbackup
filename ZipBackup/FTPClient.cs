@@ -34,7 +34,18 @@ namespace BrianHassel.ZipBackup {
                 ServicePointManager.ServerCertificateValidationCallback += delegate { return true; };
         }
 
-        public bool UploadFile(FileInfo localFile, string remoteFileName = null) {
+        public bool UploadFile(FileInfo localFile, string remoteFileName = null, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
+                var ret = UploadFileInternal(localFile, remoteFileName);
+                if (ret)
+                    return true;
+
+                System.Threading.Thread.Sleep(10000);
+            }
+            return false;
+        }
+
+        private bool UploadFileInternal(FileInfo localFile, string remoteFileName) {
             if (string.IsNullOrEmpty(remoteFileName)) remoteFileName = localFile.Name;
 
             var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.UploadFile);
@@ -50,7 +61,19 @@ namespace BrianHassel.ZipBackup {
             }
         }
 
-        public bool DownloadFile(FileInfo localFile, string remoteFileName = null) {
+        public bool DownloadFile(FileInfo localFile, string remoteFileName = null, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
+                var ret = DownloadFileInternal(localFile, remoteFileName);
+                if (ret)
+                    return true;
+
+                System.Threading.Thread.Sleep(10000);
+            }
+            return false;
+        }
+
+        
+        public bool DownloadFileInternal(FileInfo localFile, string remoteFileName) {
             if (string.IsNullOrEmpty(remoteFileName)) remoteFileName = localFile.Name;
             FtpWebRequest ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.DownloadFile);
             using (var response = (FtpWebResponse) ftp.GetResponse()) {
@@ -63,58 +86,155 @@ namespace BrianHassel.ZipBackup {
             }
         }
 
-        public List<string> GetList(bool includeDetails = false) {
-            var lines = new List<string>();
-            var ftp = BuildFTPRequest("", includeDetails ? WebRequestMethods.Ftp.ListDirectoryDetails : WebRequestMethods.Ftp.ListDirectory);
-            using (var response = (FtpWebResponse)ftp.GetResponse()) {
-                using (var ftpstream = new StreamReader(response.GetResponseStream())) {
-                    string line;
-                    while ((line = ftpstream.ReadLine()) != null) {
-                        lines.Add(line);
+        public List<string> GetList(bool includeDetails = false, int attempts=3) {
+            for(int i=0; i < attempts; i++) {
+                var ret = GetListInternal(includeDetails);
+                if (ret != null)
+                    return ret;
+
+                System.Threading.Thread.Sleep(10000);
+            }
+            return null;
+        }
+
+        private List<string> GetListInternal(bool includeDetails = false) {
+            try {
+                var lines = new List<string>();
+                var ftp = BuildFTPRequest("", includeDetails ? WebRequestMethods.Ftp.ListDirectoryDetails : WebRequestMethods.Ftp.ListDirectory);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    using (var ftpstream = new StreamReader(response.GetResponseStream())) {
+                        string line;
+                        while ((line = ftpstream.ReadLine()) != null) {
+                            lines.Add(line);
+                        }
+                        LastStatusDescription = response.StatusDescription;
                     }
-                    LastStatusDescription = response.StatusDescription;
                 }
+                return lines;
             }
-            return lines;
+            catch (Exception e) {
+                log.ErrorException(includeDetails.ToString(), e);
+                return null;
+            }
         }
 
-        public DateTime? GetModifiedDate(string remoteName) {
-            var ftp = BuildFTPRequest(remoteName, WebRequestMethods.Ftp.GetDateTimestamp);
-            using (var response = (FtpWebResponse)ftp.GetResponse()) {
-                if (CheckStatusCode(response))
-                    return response.LastModified;
-            }
-            return null;
-        }
+        public DateTime? GetModifiedDate(string remoteName, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
+                var ret = GetModifiedDateInternal(remoteName);
+                if (ret != null)
+                    return ret;
 
-        public long? GetFileSize(string remoteFileName) {
-            var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.GetFileSize);
-            using (var response = (FtpWebResponse)ftp.GetResponse()) {
-                if(CheckStatusCode(response))
-                    return response.ContentLength;
+                System.Threading.Thread.Sleep(10000);
             }
             return null;
         }
 
-
-        public bool DeleteFile(string remoteFileName) {
-            var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.DeleteFile);
-            using (var response = (FtpWebResponse) ftp.GetResponse()) {
-                return CheckStatusCode(response);
+        private DateTime? GetModifiedDateInternal(string remoteName) {
+            try {
+                var ftp = BuildFTPRequest(remoteName, WebRequestMethods.Ftp.GetDateTimestamp);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    if (CheckStatusCode(response))
+                        return response.LastModified;
+                }
+                return null;
+            } catch (Exception e) {
+                log.ErrorException(remoteName, e);
+                return null;
             }
         }
 
-        public bool RemoveDirectory(string remoteDirectory) {
-            var ftp = BuildFTPRequest(remoteDirectory, WebRequestMethods.Ftp.RemoveDirectory);
-            using (var response = (FtpWebResponse)ftp.GetResponse()) {
-                return CheckStatusCode(response);
+        public long? GetFileSize(string remoteFileName, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
+                var ret = GetFileSizeInternal(remoteFileName);
+                if (ret != null)
+                    return ret;
+
+                System.Threading.Thread.Sleep(10000);
+            }
+            return null;
+        }
+        
+        private long? GetFileSizeInternal(string remoteFileName) {
+            try {
+                var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.GetFileSize);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    if (CheckStatusCode(response))
+                        return response.ContentLength;
+                }
+                return null;
+            } catch (Exception e) {
+                log.ErrorException(remoteFileName, e);
+                return null;
             }
         }
 
-        public bool MakeDirectory(string remoteDirectory) {
-            var ftp = BuildFTPRequest(remoteDirectory, WebRequestMethods.Ftp.MakeDirectory);
-            using (var response = (FtpWebResponse)ftp.GetResponse()) {
-                return CheckStatusCode(response);
+
+        public bool DeleteFile(string remoteFileName, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
+                var ret = DeleteFileInternal(remoteFileName);
+                if (ret)
+                    return true;
+
+                System.Threading.Thread.Sleep(10000);
+            }
+            return false;
+        }
+
+        private bool DeleteFileInternal(string remoteFileName) {
+            try {
+                var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.DeleteFile);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    return CheckStatusCode(response);
+                }
+            }catch(Exception e) {
+                log.ErrorException(remoteFileName, e);
+                return false;
+            }
+        }
+
+        public bool RemoveDirectory(string remoteDirectory, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
+                var ret = RemoveDirectoryInternal(remoteDirectory);
+                if (ret)
+                    return true;
+
+                System.Threading.Thread.Sleep(10000);
+            }
+            return false;
+        }
+
+        private bool RemoveDirectoryInternal(string remoteDirectory) {
+            try {
+                var ftp = BuildFTPRequest(remoteDirectory, WebRequestMethods.Ftp.RemoveDirectory);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    return CheckStatusCode(response);
+                }
+            }catch(Exception e) {
+                log.ErrorException(remoteDirectory, e);
+                return false;
+            }
+        }
+
+        public bool MakeDirectory(string remoteDirectory, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
+                var ret = MakeDirectoryInternal(remoteDirectory);
+                if (ret)
+                    return true;
+
+                System.Threading.Thread.Sleep(10000);
+            }
+            return false;
+        }
+
+        private bool MakeDirectoryInternal(string remoteDirectory) {
+            try {
+                var ftp = BuildFTPRequest(remoteDirectory, WebRequestMethods.Ftp.MakeDirectory);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    return CheckStatusCode(response);
+                }
+            }catch(Exception e) {
+                log.ErrorException(remoteDirectory, e);
+                return false;
             }
         }
 
@@ -123,6 +243,7 @@ namespace BrianHassel.ZipBackup {
         private bool CheckStatusCode(FtpWebResponse response) {
             //200 and 421        
             LastStatusDescription = response.StatusDescription;
+            log.Debug(response.StatusCode + " " + response.StatusDescription);
             return response.StatusCode >= FtpStatusCode.CommandOK && response.StatusCode < FtpStatusCode.ServiceNotAvailable;
         }
 
