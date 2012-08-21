@@ -19,7 +19,8 @@ namespace BrianHassel.ZipBackup {
         /// <param name="useBinary"></param>
         /// <param name="usePassive"></param>
         /// <param name="keepAlive">Defaults to false. KeepAlive=true can cause issues with directories other than the root and other login issues. (Slightly slower)</param>
-        public FTPClient(string hostAddress, string userName, string password, string domain = null, int? port = null, bool useSSL = true, bool ignoreCert = true, int bufferSize = 1024, bool useBinary=true, bool usePassive=true, bool keepAlive = false) {
+        public FTPClient(string hostAddress, string userName, string password, string domain = null, int? port = null, bool useSSL = true, bool ignoreCert = true,
+                         int bufferSize = 1024, bool useBinary = true, bool usePassive = true, bool keepAlive = false) {
             this.hostAddress = hostAddress;
             this.port = port;
             this.useSSL = useSSL;
@@ -46,18 +47,23 @@ namespace BrianHassel.ZipBackup {
         }
 
         private bool UploadFileInternal(FileInfo localFile, string remoteFileName) {
-            if (string.IsNullOrEmpty(remoteFileName)) remoteFileName = localFile.Name;
-
-            var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.UploadFile);
-            using (var fs = localFile.OpenRead()) {
-                ftp.ContentLength = fs.Length;
-                using (var ftpstream = ftp.GetRequestStream()) {
-                    fs.CopyTo(ftpstream, bufferSize);
+            if (string.IsNullOrEmpty(remoteFileName))
+                remoteFileName = localFile.Name;
+            try {
+                var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.UploadFile);
+                using (var fs = localFile.OpenRead()) {
+                    ftp.ContentLength = fs.Length;
+                    using (var ftpstream = ftp.GetRequestStream()) {
+                        fs.CopyTo(ftpstream, bufferSize);
+                    }
                 }
-            }
 
-            using (var response = (FtpWebResponse)ftp.GetResponse()) {
-                return CheckStatusCode(response);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    return CheckStatusCode(response);
+                }
+            } catch (Exception e) {
+                log.ErrorException(localFile.FullName, e);
+                return false;
             }
         }
 
@@ -72,22 +78,29 @@ namespace BrianHassel.ZipBackup {
             return false;
         }
 
-        
-        public bool DownloadFileInternal(FileInfo localFile, string remoteFileName) {
-            if (string.IsNullOrEmpty(remoteFileName)) remoteFileName = localFile.Name;
-            FtpWebRequest ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.DownloadFile);
-            using (var response = (FtpWebResponse) ftp.GetResponse()) {
-                using (var ftpstream = response.GetResponseStream()) {
-                    using (FileStream fs = localFile.OpenWrite()) {
-                        if (ftpstream != null) ftpstream.CopyTo(fs, bufferSize);
+
+        private bool DownloadFileInternal(FileInfo localFile, string remoteFileName) {
+            if (string.IsNullOrEmpty(remoteFileName))
+                remoteFileName = localFile.Name;
+            try {
+                FtpWebRequest ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.DownloadFile);
+                using (var response = (FtpWebResponse) ftp.GetResponse()) {
+                    using (var ftpstream = response.GetResponseStream()) {
+                        using (FileStream fs = localFile.OpenWrite()) {
+                            if (ftpstream != null)
+                                ftpstream.CopyTo(fs, bufferSize);
+                        }
                     }
+                    return CheckStatusCode(response);
                 }
-                return CheckStatusCode(response);
+            } catch (Exception e) {
+                log.ErrorException(localFile.FullName, e);
+                return false;
             }
         }
 
-        public List<string> GetList(bool includeDetails = false, int attempts=3) {
-            for(int i=0; i < attempts; i++) {
+        public List<string> GetList(bool includeDetails = false, int attempts = 3) {
+            for (int i = 0; i < attempts; i++) {
                 var ret = GetListInternal(includeDetails);
                 if (ret != null)
                     return ret;
@@ -111,8 +124,7 @@ namespace BrianHassel.ZipBackup {
                     }
                 }
                 return lines;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 log.ErrorException(includeDetails.ToString(), e);
                 return null;
             }
@@ -153,7 +165,7 @@ namespace BrianHassel.ZipBackup {
             }
             return null;
         }
-        
+
         private long? GetFileSizeInternal(string remoteFileName) {
             try {
                 var ftp = BuildFTPRequest(remoteFileName, WebRequestMethods.Ftp.GetFileSize);
@@ -186,7 +198,7 @@ namespace BrianHassel.ZipBackup {
                 using (var response = (FtpWebResponse) ftp.GetResponse()) {
                     return CheckStatusCode(response);
                 }
-            }catch(Exception e) {
+            } catch (Exception e) {
                 log.ErrorException(remoteFileName, e);
                 return false;
             }
@@ -209,7 +221,7 @@ namespace BrianHassel.ZipBackup {
                 using (var response = (FtpWebResponse) ftp.GetResponse()) {
                     return CheckStatusCode(response);
                 }
-            }catch(Exception e) {
+            } catch (Exception e) {
                 log.ErrorException(remoteDirectory, e);
                 return false;
             }
@@ -232,7 +244,7 @@ namespace BrianHassel.ZipBackup {
                 using (var response = (FtpWebResponse) ftp.GetResponse()) {
                     return CheckStatusCode(response);
                 }
-            }catch(Exception e) {
+            } catch (Exception e) {
                 log.ErrorException(remoteDirectory, e);
                 return false;
             }
@@ -249,7 +261,7 @@ namespace BrianHassel.ZipBackup {
 
 
         private FtpWebRequest BuildFTPRequest(string remoteFileName, string ftpRequest) {
-            var uriBuilder = new UriBuilder("ftp", hostAddress) { Path = remoteFileName };
+            var uriBuilder = new UriBuilder("ftp", hostAddress) {Path = remoteFileName};
             if (port.HasValue && port.Value != 21)
                 uriBuilder.Port = port.Value;
 
@@ -257,7 +269,7 @@ namespace BrianHassel.ZipBackup {
 
             log.Debug("({0}) {1}", ftpRequest, uri);
 
-            var ftp = (FtpWebRequest)WebRequest.Create(uri);
+            var ftp = (FtpWebRequest) WebRequest.Create(uri);
             if (networkCredentials != null)
                 ftp.Credentials = networkCredentials;
             ftp.KeepAlive = keepAlive;

@@ -63,6 +63,9 @@ namespace BrianHassel.ZipBackup {
         public bool SendEmail { get; set; }
 
         [DataMember]
+        public bool SendEmailOnSuccess { get; set; }
+
+        [DataMember]
         public EmailSettings EmailSettings { get; set; }
 
        

@@ -40,9 +40,11 @@ namespace BrianHassel.ZipBackup {
 
 
             if (backupSettings.SendEmail) {
-                string text = string.Format("Backup of {0} {1}.", Environment.MachineName, result ? "was successful." : "FAILED");
-                if (!StaticHelpers.SendEmail(backupSettings.EmailSettings, text, text))
-                    result = false;
+                if (!result || backupSettings.SendEmailOnSuccess) { //send email on failure or always if option specified
+                    string text = string.Format("Backup of {0} {1}.", Environment.MachineName, result ? "was successful." : "FAILED");
+                    if (!StaticHelpers.SendEmail(backupSettings.EmailSettings, text, text))
+                        result = false;
+                }
             }
 
             //Return the system to the proper sleep state.
