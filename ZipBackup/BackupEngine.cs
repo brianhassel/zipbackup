@@ -219,7 +219,9 @@ namespace BrianHassel.ZipBackup {
             log.Info("Starting FTP: {0}", ftpSettings.FTPServerAddress);
 
             var ftpPassword = SecurityHelpers.DecodeSecret(ftpSettings.FTPPassword);
-            var ftpClient = new FTPClient(ftpSettings.FTPServerAddress, ftpSettings.FTPUser, ftpPassword, port: ftpSettings.FTPPort, useSSL: ftpSettings.FTPUseSSL);
+
+            var ftpClient = new FTPClient(ftpSettings.FTPServerAddress, ftpSettings.FTPUser, ftpPassword, port: ftpSettings.FTPPort, useSSL: ftpSettings.FTPUseSSL,
+                                          attempts: ftpSettings.RetryAttempts, attemptWaitSeconds: ftpSettings.RetryDelaySeconds);
             
             var localBackupDirectory = new DirectoryInfo(backupSettings.LocalBackupFolder);
             var localBackupFiles = new List<FileInfo>();

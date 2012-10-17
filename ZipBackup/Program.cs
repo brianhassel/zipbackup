@@ -56,6 +56,11 @@ namespace BrianHassel.ZipBackup {
                 if (!string.IsNullOrWhiteSpace(passwordSettingsDialog.EmailPassword))
                     backupSettings.EmailSettings.EmailPassword = SecurityHelpers.EncodeSecret(passwordSettingsDialog.EmailPassword);
 
+                //Create a backup of the existing config file
+                if(File.Exists(configFile)) {
+                    File.Copy(configFile, configFile + ".bak", true);
+                }
+
                 backupSettings.SaveBackupSettings(configFile);
             }
             return ExitCodeSuccess;

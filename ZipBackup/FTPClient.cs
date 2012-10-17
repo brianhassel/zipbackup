@@ -20,7 +20,7 @@ namespace BrianHassel.ZipBackup {
         /// <param name="usePassive"></param>
         /// <param name="keepAlive">Defaults to false. KeepAlive=true can cause issues with directories other than the root and other login issues. (Slightly slower)</param>
         public FTPClient(string hostAddress, string userName, string password, string domain = null, int? port = null, bool useSSL = true, bool ignoreCert = true,
-                         int bufferSize = 1024, bool useBinary = true, bool usePassive = true, bool keepAlive = false) {
+                         int bufferSize = 1024, bool useBinary = true, bool usePassive = true, bool keepAlive = false,int attempts=3, int attemptWaitSeconds=10) {
             this.hostAddress = hostAddress;
             this.port = port;
             this.useSSL = useSSL;
@@ -29,19 +29,24 @@ namespace BrianHassel.ZipBackup {
             this.usePassive = usePassive;
             this.keepAlive = keepAlive;
 
+            //Minimum number of attemps = 1
+            attemptNumber = Math.Max(attempts, 1);
+            //Minimum wait = 10000 (10 seconds)
+            attemptWaitMilliseconds = Math.Max(attemptWaitSeconds, 10)*1000;
+            
             networkCredentials = string.IsNullOrEmpty(domain) ? new NetworkCredential(userName, password) : new NetworkCredential(userName, password, domain);
 
             if (ignoreCert)
                 ServicePointManager.ServerCertificateValidationCallback += delegate { return true; };
         }
 
-        public bool UploadFile(FileInfo localFile, string remoteFileName = null, int attempts = 3) {
-            for (int i = 0; i < attempts; i++) {
+        public bool UploadFile(FileInfo localFile, string remoteFileName = null) {
+            for (int i = 0; i < attemptNumber; i++) {
                 var ret = UploadFileInternal(localFile, remoteFileName);
                 if (ret)
                     return true;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return false;
         }
@@ -67,13 +72,13 @@ namespace BrianHassel.ZipBackup {
             }
         }
 
-        public bool DownloadFile(FileInfo localFile, string remoteFileName = null, int attempts = 3) {
-            for (int i = 0; i < attempts; i++) {
+        public bool DownloadFile(FileInfo localFile, string remoteFileName = null) {
+            for (int i = 0; i < attemptNumber; i++) {
                 var ret = DownloadFileInternal(localFile, remoteFileName);
                 if (ret)
                     return true;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return false;
         }
@@ -105,7 +110,7 @@ namespace BrianHassel.ZipBackup {
                 if (ret != null)
                     return ret;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return null;
         }
@@ -130,13 +135,13 @@ namespace BrianHassel.ZipBackup {
             }
         }
 
-        public DateTime? GetModifiedDate(string remoteName, int attempts = 3) {
-            for (int i = 0; i < attempts; i++) {
+        public DateTime? GetModifiedDate(string remoteName) {
+            for (int i = 0; i < attemptNumber; i++) {
                 var ret = GetModifiedDateInternal(remoteName);
                 if (ret != null)
                     return ret;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return null;
         }
@@ -155,13 +160,13 @@ namespace BrianHassel.ZipBackup {
             }
         }
 
-        public long? GetFileSize(string remoteFileName, int attempts = 3) {
-            for (int i = 0; i < attempts; i++) {
+        public long? GetFileSize(string remoteFileName) {
+            for (int i = 0; i < attemptNumber; i++) {
                 var ret = GetFileSizeInternal(remoteFileName);
                 if (ret != null)
                     return ret;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return null;
         }
@@ -181,13 +186,13 @@ namespace BrianHassel.ZipBackup {
         }
 
 
-        public bool DeleteFile(string remoteFileName, int attempts = 3) {
-            for (int i = 0; i < attempts; i++) {
+        public bool DeleteFile(string remoteFileName) {
+            for (int i = 0; i < attemptNumber; i++) {
                 var ret = DeleteFileInternal(remoteFileName);
                 if (ret)
                     return true;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return false;
         }
@@ -204,13 +209,13 @@ namespace BrianHassel.ZipBackup {
             }
         }
 
-        public bool RemoveDirectory(string remoteDirectory, int attempts = 3) {
-            for (int i = 0; i < attempts; i++) {
+        public bool RemoveDirectory(string remoteDirectory) {
+            for (int i = 0; i < attemptNumber; i++) {
                 var ret = RemoveDirectoryInternal(remoteDirectory);
                 if (ret)
                     return true;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return false;
         }
@@ -227,13 +232,13 @@ namespace BrianHassel.ZipBackup {
             }
         }
 
-        public bool MakeDirectory(string remoteDirectory, int attempts = 3) {
-            for (int i = 0; i < attempts; i++) {
+        public bool MakeDirectory(string remoteDirectory) {
+            for (int i = 0; i < attemptNumber; i++) {
                 var ret = MakeDirectoryInternal(remoteDirectory);
                 if (ret)
                     return true;
 
-                System.Threading.Thread.Sleep(10000);
+                System.Threading.Thread.Sleep(attemptWaitMilliseconds);
             }
             return false;
         }
@@ -289,6 +294,8 @@ namespace BrianHassel.ZipBackup {
         private readonly bool useBinary;
         private readonly bool usePassive;
         private readonly bool keepAlive;
+        private int attemptNumber;
+        private int attemptWaitMilliseconds;
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
     }
 }

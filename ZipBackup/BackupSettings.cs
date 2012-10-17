@@ -108,6 +108,12 @@ namespace BrianHassel.ZipBackup {
 
         [DataMember]
         public bool FTPVerifySizes { get; set; }
+
+        [DataMember]
+        public int RetryAttempts { get; set; }
+
+        [DataMember]
+        public int RetryDelaySeconds { get; set; }
     }
 
     [DataContract]
